@@ -1,6 +1,7 @@
 ﻿using SharpKml.Base;
 using SharpKml.Dom;
 using SharpKml.Engine;
+using Placemark = SharpKml.Dom.Placemark;
 
 public class KmlExportService
 {
@@ -11,7 +12,7 @@ public class KmlExportService
         _exportPath = exportPath;
     }
 
-    public async Task<string> ExportFilteredPlacemarksAsync(IEnumerable<Placemark> filteredPlacemarks)
+    public async Task<string> ExportFilteredPlacemarksAsync(Task<IEnumerable<DesafioFiltroKML.Domain.Entities.Placemark>> filteredPlacemarks1, IEnumerable<Placemark> filteredPlacemarks)
     {
         var document = new Document();
 
@@ -32,4 +33,5 @@ public class KmlExportService
 
         return filePath;
     }
+
 }

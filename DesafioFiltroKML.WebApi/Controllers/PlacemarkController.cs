@@ -1,32 +1,62 @@
-﻿using DesafioFiltroKML.Domain.Entities;
+﻿using Core.Domain.Interfaces;
+using DesafioFiltroKML.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+
 
 [ApiController]
 [Route("api/placemarks")]
 public class PlacemarkController : ControllerBase
 {
-    private readonly GetFilteredPlacemarksService _getFilteredPlacemarksService;
+    private readonly IPlacemarkRepository _placemarkRepository;
+    private readonly GetFilteredPlacemarksService _filteredPlacemarksService;
     private readonly KmlExportService _kmlExportService;
 
-    public PlacemarkController(GetFilteredPlacemarksService getFilteredPlacemarksUseCase, KmlExportService kmlExportService)
+    public PlacemarkController(
+        IPlacemarkRepository placemarkRepository,
+        GetFilteredPlacemarksService filteredPlacemarksService,
+        KmlExportService kmlExportService)
     {
-        _getFilteredPlacemarksService = getFilteredPlacemarksUseCase;
+        _placemarkRepository = placemarkRepository;
+        _filteredPlacemarksService = filteredPlacemarksService;
         _kmlExportService = kmlExportService;
     }
 
-    [HttpGet]
-    public async Task<IActionResult> GetPlacemarks([FromQuery] PlacemarkFilter filter)
+    [HttpGet("filters")]
+    public IActionResult GetAvailableFilters()
     {
-        var placemarks = await _getFilteredPlacemarksService.ExecuteAsync(filter);
-        return Ok(placemarks); 
+        var availableFilters = _placemarkRepository.GetAvailableFilters();
+        return Ok(availableFilters);
+    }
+
+    [HttpGet]
+    public IActionResult GetPlacemarks([FromQuery] PlacemarkFilter filter)
+    {
+        var placemarks = _filteredPlacemarksService.ExecuteAsync(filter);
+        return Ok(placemarks);
     }
 
     [HttpPost("export")]
     public async Task<IActionResult> ExportPlacemarks([FromBody] PlacemarkFilter filter)
     {
-        var placemarks = await _getFilteredPlacemarksService.ExecuteAsync(filter);
-        var filePath = await _kmlExportService.ExportFilteredPlacemarksAsync((IEnumerable<SharpKml.Dom.Placemark>)placemarks);
+        try
+        {
+            // Agora aguardamos o resultado da execução assíncrona
+            var filteredPlacemarks = await _filteredPlacemarksService.ExecuteAsync(filter);
 
-        return Ok(new { Message = "Arquivo exportado com sucesso.", FilePath = filePath });
+            if (!filteredPlacemarks.Any())
+            {
+                return BadRequest("Nenhum placemark encontrado para os filtros fornecidos.");
+            }
+
+            var exportPath = Path.Combine(Directory.GetCurrentDirectory(), "ExportedKml");
+
+            var filePath = await _kmlExportService.ExportFilteredPlacemarksAsync(filteredPlacemarks, exportPath);
+
+            return Ok(new { Message = "Arquivo exportado com sucesso.", FilePath = filePath });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Erro interno ao exportar arquivo KML: {ex.Message}");
+        }
     }
 }

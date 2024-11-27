@@ -1,18 +1,18 @@
 using Microsoft.OpenApi.Models;
 using Core.Domain.Interfaces;
-using DesafioFiltroKML.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configuração para caminho do arquivo KML
+builder.Environment.WebRootPath ??= Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+Directory.CreateDirectory(builder.Environment.WebRootPath);
+
 var kmlFilePath = Path.Combine(builder.Environment.WebRootPath, "DIRECIONADORES1.kml");
 
-// Registro de dependências
 builder.Services.AddSingleton<IPlacemarkRepository>(sp =>
     new PlacemarkRepository(kmlFilePath, sp.GetRequiredService<IKmlLoader>()));
 builder.Services.AddScoped<IKmlLoader, KmlLoader>();
-
-// Configuração para API e Swagger
+builder.Services.AddScoped<KmlExportService>();
+builder.Services.AddScoped<GetFilteredPlacemarksService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -27,22 +27,19 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Configuração do Swagger para ambiente de desenvolvimento
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Desafio Filtro KML API V1");
-        options.RoutePrefix = string.Empty; // Para acessar diretamente no root
     });
 }
 
-// Configuração para arquivos estáticos (se necessário)
-app.UseStaticFiles();
 
-// Mapear controllers
+app.UseDefaultFiles(); // Habilita o `index.html` como padrão na raiz
+app.UseStaticFiles();  // Serve arquivos estáticos de `wwwroot`
+
 app.MapControllers();
 
-// Rodar a aplicação
 app.Run();
